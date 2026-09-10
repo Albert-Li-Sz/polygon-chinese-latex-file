@@ -1,0 +1,42 @@
+% 从仓库根目录运行，至少编译两遍以生成目录和总页数：
+% xelatex -output-directory=/tmp/polygon-chinese-example examples/minimal.tex
+\documentclass[11pt,a4paper,oneside]{article}
+\usepackage[UTF8,fontset=fandol]{ctex}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage[chinese]{olymp}
+\usepackage{lastpage}
+
+% 电子版不补空白页；双面打印可改为 \intentionallyblankpagestrue。
+\intentionallyblankpagesfalse
+\renewcommand{\ExampleTabSize}{4}
+\contest{中文题面示例赛}{线上}{2026 年 9 月}
+
+\begin{document}
+
+\begin{center}
+  {\LARGE\bfseries 中文题面最小示例}
+\end{center}
+\makeproblemtoc
+\clearpage
+
+\def\ProblemIndex{A}
+\begin{problem}{两数之和}{标准输入}{标准输出}{1 秒}{256 MB}
+给定两个整数 $a$ 和 $b$，求它们的和。
+
+\InputFile
+输入一行，包含两个整数 $a$ 和 $b$，满足 $-10^9 \le a,b \le 10^9$。
+
+\OutputFile
+输出一个整数，表示 $a+b$。
+
+\Example
+\begin{example}
+\exmpfile{examples/sum.in}{examples/sum.ans}%
+\end{example}
+
+\Note
+在样例中，$1+2=3$。
+\end{problem}
+
+\end{document}

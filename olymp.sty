@@ -10,8 +10,10 @@
 
 \ProvidesPackage{olymp}
  
-\usepackage{verbatim}
-\usepackage{longtable}
+\RequirePackage{verbatim}
+\RequirePackage{longtable}
+\RequirePackage{booktabs}
+\RequirePackage{etoolbox}
 
 
 \newif\if@landscape\@landscapefalse
@@ -351,6 +353,7 @@
 \afterconstraints=2mm
  
 \newcommand{\problemheadfont}{\LARGE}
+\newcommand{\problemtitlefont}{\sffamily\bfseries}
 \newcommand{\problemsectionfont}{\Large}
 \newcommand{\problemend}{
 \clearpage
@@ -503,7 +506,7 @@
     \bigskip%
     \noindent%
     \refstepcounter{problem}
-    \textbf{\problemheadfont\textsf{\ifdefined\ShortProblemTitle\ifdefined\ProblemIndex\ProblemIndex. \fi\else\kw@Problem\ \ifdefined\ProblemIndex\ProblemIndex\else\if@arabic\arabic{problem}\else\Alph{problem}\fi\fi. \fi #1}}%
+    {\problemheadfont\problemtitlefont\ifdefined\ShortProblemTitle\ifdefined\ProblemIndex\ProblemIndex. \fi\else\kw@Problem\ \ifdefined\ProblemIndex\ProblemIndex\else\if@arabic\arabic{problem}\else\Alph{problem}\fi\fi. \fi #1}%
     \nopagebreak%
     \problemtextfont%
 }
@@ -554,7 +557,7 @@
         \ifdefined\NoProblemHead\else%
         \noindent
         \refstepcounter{problem}
-        \textbf{\problemheadfont\textsf{%
+        {\problemheadfont\problemtitlefont%
         		\ifdefined\ShortProblemTitle\ifdefined\ProblemIndex\ProblemIndex. \fi\else\kw@Problem\ \ifdefined\ProblemIndex\ProblemIndex\else\if@arabic\arabic{problem}\else\Alph{problem}\fi\fi. \fi%
         		#1%
                 \ifdefined\DivisionNumber%
@@ -562,7 +565,7 @@
                 {\ \textit{(Division\ \DivisionNumber)}}%
                 \fi%
                 \fi%
-                }}%
+                }%
         \nopagebreak%
         \par\vspace{\afterproblemhead}%
         \problemtextfont\parindent=6.5mm%
@@ -634,7 +637,9 @@
 
 % Read file-based examples one line at a time.  A normal tabular (and a
 % longtable row containing a minipage) cannot be split across pages, so each
-% pair of input/output lines is emitted as its own row.
+% pair of input/output lines is split into independently breakable display rows.
+\newcommand{\ExampleTabSize}{4}
+\newcommand{\ExampleContinuationMarker}{\ensuremath{\hookrightarrow}\,}
 \ExplSyntaxOn
 \ior_new:N \l__olymp_example_ior
 \seq_new:N \l__olymp_example_input_seq
@@ -643,6 +648,16 @@
 \tl_new:N \l__olymp_example_output_line_tl
 \tl_new:N \l__olymp_example_rows_tl
 \int_new:N \l__olymp_example_line_count_int
+\seq_new:N \l__olymp_example_input_wrapped_seq
+\seq_new:N \l__olymp_example_output_wrapped_seq
+\seq_new:N \l__olymp_example_wrapped_seq
+\tl_new:N \l__olymp_example_chunk_tl
+\tl_new:N \l__olymp_example_candidate_tl
+\dim_new:N \l__olymp_example_max_width_dim
+\box_new:N \l__olymp_example_chunk_box
+\bool_new:N \l__olymp_example_continued_bool
+\int_new:N \l__olymp_example_column_int
+\int_new:N \l__olymp_example_tab_size_int
 
 \cs_new_protected:Npn \__olymp_example_read_file:nN #1#2
   {
@@ -663,6 +678,127 @@
     \tl_use:N \l_tmpa_tl
   }
 
+% Split a logical line into measured display lines before building the table.
+% Each display line is a separate row, so even one very long source line can
+% cross a page. The arrow is presentation only and never read from the file.
+\cs_new_protected:Npn \__olymp_example_save_chunk:
+  {
+    \seq_put_right:Nx \l__olymp_example_wrapped_seq
+      {
+        \exp_not:N \hbox
+          {
+            \bool_if:NT \l__olymp_example_continued_bool
+              { \exp_not:N \ExampleContinuationMarker }
+            \exp_not:N \__olymp_example_typeset_line:n
+              { \exp_not:V \l__olymp_example_chunk_tl }
+          }
+      }
+  }
+
+\cs_new_protected:Npn \__olymp_example_append_char:n #1
+  {
+    \tl_set_eq:NN \l__olymp_example_candidate_tl \l__olymp_example_chunk_tl
+    \tl_put_right:Nn \l__olymp_example_candidate_tl {#1}
+    % Measure the complete candidate: xeCJK inserts context-dependent spacing
+    % between scripts, so adding the widths of isolated glyphs is insufficient.
+    \hbox_set:Nn \l__olymp_example_chunk_box
+      {
+        \bool_if:NT \l__olymp_example_continued_bool
+          { \ExampleContinuationMarker }
+        \exp_args:NV \__olymp_example_typeset_line:n
+          \l__olymp_example_candidate_tl
+      }
+    \dim_compare:nNnT
+      { \box_wd:N \l__olymp_example_chunk_box }
+      > { \l__olymp_example_max_width_dim }
+      {
+        \tl_if_empty:NF \l__olymp_example_chunk_tl
+          {
+            \__olymp_example_save_chunk:
+            \tl_clear:N \l__olymp_example_chunk_tl
+            \bool_set_true:N \l__olymp_example_continued_bool
+          }
+        \hbox_set:Nn \l__olymp_example_chunk_box
+          {
+            \bool_if:NT \l__olymp_example_continued_bool
+              { \ExampleContinuationMarker }
+            \__olymp_example_typeset_line:n {#1}
+          }
+        \dim_compare:nNnT
+          { \box_wd:N \l__olymp_example_chunk_box }
+          > { \l__olymp_example_max_width_dim }
+          {
+            \PackageError{olymp}{Sample~column~too~narrow}
+              {Increase~the~sample~column~width~or~shorten~
+               \string\ExampleContinuationMarker.}
+          }
+      }
+    \tl_put_right:Nn \l__olymp_example_chunk_tl {#1}
+    \int_incr:N \l__olymp_example_column_int
+  }
+
+\cs_new_protected:Npn \__olymp_example_wrap_line:nnN #1#2#3
+  {
+    \seq_clear:N \l__olymp_example_wrapped_seq
+    \tl_clear:N \l__olymp_example_chunk_tl
+    \dim_set:Nn \l__olymp_example_max_width_dim {#2}
+    \bool_set_false:N \l__olymp_example_continued_bool
+    \int_zero:N \l__olymp_example_column_int
+    \int_set:Nn \l__olymp_example_tab_size_int
+      { \int_max:nn {1} { \ExampleTabSize } }
+    \str_map_inline:nn {#1}
+      {
+        \str_if_eq:eeTF {##1} { \char_generate:nn {9} {12} }
+          {
+            \prg_replicate:nn
+              {
+                \l__olymp_example_tab_size_int
+                - \int_mod:nn
+                    { \l__olymp_example_column_int }
+                    { \l__olymp_example_tab_size_int }
+              }
+              { \__olymp_example_append_char:n { ~ } }
+          }
+          { \__olymp_example_append_char:n {##1} }
+      }
+    % An empty source line still needs one display row.
+    \__olymp_example_save_chunk:
+    \seq_set_eq:NN #3 \l__olymp_example_wrapped_seq
+  }
+\cs_generate_variant:Nn \__olymp_example_wrap_line:nnN { VnN }
+
+\cs_new_protected:Npn \__olymp_example_pop_line:NN #1#2
+  {
+    \seq_if_empty:NTF #1
+      { \tl_clear:N #2 }
+      { \seq_pop_left:NN #1 #2 }
+  }
+
+\cs_new_protected:Npn \__olymp_example_append_rows:
+  {
+    \int_step_inline:nn
+      {
+        \int_max:nn
+          { \seq_count:N \l__olymp_example_input_wrapped_seq }
+          { \seq_count:N \l__olymp_example_output_wrapped_seq }
+      }
+      {
+        \__olymp_example_pop_line:NN
+          \l__olymp_example_input_wrapped_seq \l__olymp_example_input_line_tl
+        \__olymp_example_pop_line:NN
+          \l__olymp_example_output_wrapped_seq \l__olymp_example_output_line_tl
+        \tl_put_right:Nx \l__olymp_example_rows_tl
+          {
+            \exp_not:N \strut
+            \exp_not:V \l__olymp_example_input_line_tl
+            &
+            \exp_not:N \strut
+            \exp_not:V \l__olymp_example_output_line_tl
+            \exp_not:N \\
+          }
+      }
+  }
+
 \cs_new_protected:Npn \olymp_example_file:nn #1#2
   {
     \__olymp_example_read_file:nN {#1} \l__olymp_example_input_seq
@@ -678,31 +814,17 @@
     \tl_clear:N \l__olymp_example_rows_tl
     \int_step_inline:nn { \l__olymp_example_line_count_int }
       {
-        \seq_if_empty:NTF \l__olymp_example_input_seq
-          { \tl_clear:N \l__olymp_example_input_line_tl }
-          {
-            \seq_pop_left:NN
-              \l__olymp_example_input_seq
-              \l__olymp_example_input_line_tl
-          }
-        \seq_if_empty:NTF \l__olymp_example_output_seq
-          { \tl_clear:N \l__olymp_example_output_line_tl }
-          {
-            \seq_pop_left:NN
-              \l__olymp_example_output_seq
-              \l__olymp_example_output_line_tl
-          }
-        \tl_put_right:Nx \l__olymp_example_rows_tl
-          {
-            \exp_not:N \strut
-            \exp_not:N \__olymp_example_typeset_line:n
-              { \exp_not:V \l__olymp_example_input_line_tl }
-            &
-            \exp_not:N \strut
-            \exp_not:N \__olymp_example_typeset_line:n
-              { \exp_not:V \l__olymp_example_output_line_tl }
-            \exp_not:N \\
-          }
+        \__olymp_example_pop_line:NN
+          \l__olymp_example_input_seq \l__olymp_example_input_line_tl
+        \__olymp_example_pop_line:NN
+          \l__olymp_example_output_seq \l__olymp_example_output_line_tl
+        \__olymp_example_wrap_line:VnN
+          \l__olymp_example_input_line_tl { \exmpwidinf }
+          \l__olymp_example_input_wrapped_seq
+        \__olymp_example_wrap_line:VnN
+          \l__olymp_example_output_line_tl { \exmpwidouf }
+          \l__olymp_example_output_wrapped_seq
+        \__olymp_example_append_rows:
       }
     \tl_use:N \l__olymp_example_rows_tl
     \hline
@@ -732,8 +854,8 @@
     \if@twocolumn
     \begin{tabular}{|p{\exmpwidinf}|p{\exmpwidouf}|}
         \hline
-        \multicolumn{1}{|c|}{\bf\texttt{\InputFileName}}&
-        \multicolumn{1}{|c|}{\bf\texttt{\OutputFileName}}\\
+        \multicolumn{1}{|c|}{\bfseries\sffamily\InputFileName}&
+        \multicolumn{1}{|c|}{\bfseries\sffamily\OutputFileName}\\
         \hline
     \else
     \setlength{\LTleft}{0pt}
@@ -742,13 +864,13 @@
     \setlength{\LTpost}{0pt}
     \begin{longtable}{|p{\exmpwidinf}|p{\exmpwidouf}|}
         \hline
-        \multicolumn{1}{|c|}{\bf\texttt{\InputFileName}}&
-        \multicolumn{1}{|c|}{\bf\texttt{\OutputFileName}}\\
+        \multicolumn{1}{|c|}{\bfseries\sffamily\InputFileName}&
+        \multicolumn{1}{|c|}{\bfseries\sffamily\OutputFileName}\\
         \hline
         \endfirsthead
         \hline
-        \multicolumn{1}{|c|}{\bf\texttt{\InputFileName}}&
-        \multicolumn{1}{|c|}{\bf\texttt{\OutputFileName}}\\
+        \multicolumn{1}{|c|}{\bfseries\sffamily\InputFileName}&
+        \multicolumn{1}{|c|}{\bfseries\sffamily\OutputFileName}\\
         \hline
         \endhead
         \hline
@@ -773,13 +895,13 @@
         \ifdefined\NoExamples\else%
         \begin{tabular}{|c|}
         \hline
-        \multicolumn{1}{|c|}{\bf\texttt{\InputFileName}}\\
+        \multicolumn{1}{|c|}{\bfseries\sffamily\InputFileName}\\
         \hline
         \begin{minipage}[t]{\exmpwidewid}\rightskip=0pt plus 1fill\relax
         ##1
         \medskip\end{minipage}\\
         \hline
-        \multicolumn{1}{|c|}{\bf\texttt{\OutputFileName}}\\%
+        \multicolumn{1}{|c|}{\bfseries\sffamily\OutputFileName}\\%
         \hline
         \begin{minipage}[t]{\exmpwidewid}\rightskip=0pt plus 1fill\relax
         ##2    
@@ -828,9 +950,9 @@
     \ifdefined\NoExamples\else%
     \begin{tabular}{|l|l|l|}
         \hline
-        \multicolumn{1}{|c|}{\bf\texttt{\InputFileName}}&
-        \multicolumn{1}{|c|}{\bf\texttt{\OutputFileName}}&
-        \multicolumn{1}{|c|}{\bf\texttt{\expandafter\unexpanded{\expandafter\kwExampleNotes}}}\\
+        \multicolumn{1}{|c|}{\bfseries\sffamily\InputFileName}&
+        \multicolumn{1}{|c|}{\bfseries\sffamily\OutputFileName}&
+        \multicolumn{1}{|c|}{\bfseries\sffamily\expandafter\unexpanded{\expandafter\kwExampleNotes}}\\
         \hline
     \fi%
 }{
@@ -897,23 +1019,21 @@
  
 \makeatletter
  
-\renewcommand{\@oddhead}{
-    \ifdefined\thecontestname
-        \parbox{\textwidth}{
-            \begin{center}
-                \protect\begin{tabular*}{0.98\textwidth}{@{} l @{\extracolsep{\fill}} r @{}}
-                     \thecontestname & \thecontestdate
-                \end{tabular*}
-                \\[2pt]
-                \hrule
-            \end{center}
-        }
-    \fi
-}
- 
-\renewcommand{\@oddfoot}{
-\gdef\problemletter{\if@arabic\arabic{problem}\else\Alph{problem}\fi}
- 
+\renewcommand{\@oddhead}{%
+    \ifdefined\thecontestname%
+        \parbox{\textwidth}{%
+            \begin{center}%
+                \protect\begin{tabular*}{0.98\textwidth}{@{} l @{\extracolsep{\fill}} r @{}}%
+                     \thecontestname & \thecontestdate%
+                \end{tabular*}%
+                \\[2pt]%
+                \hrule%
+            \end{center}%
+        }%
+    \fi%
+}%
+\renewcommand{\@oddfoot}{%
+\gdef\problemletter{\if@arabic\arabic{problem}\else\Alph{problem}\fi}%
 % Revision signature
 \ifrevisionsignature%
 %\if@revsign%
@@ -921,7 +1041,6 @@
 \else%
 	{\gdef\rsigfooter{}}%
 \fi%
- 
 \ifdisplayauthorinfooter%
 %\if@newfooter%
 	{\gdef\thefooter%
@@ -944,15 +1063,14 @@
         {{\hfil}\kw@Page\ \thepage\ \kw@of\ \pageref{LastPage} \if@chinese \kw@ChinesePageEnd \fi \rsigfooter\hfil}}%
 \fi%
 \fi%
- 
-    \parbox{\textwidth}{
-        \hrule
-        \vspace{6pt}
-        \sffamily
-        \thefooter
-    }
-}
- 
+    \parbox{\textwidth}{%
+        \hrule%
+        \vspace{6pt}%
+        \sffamily%
+        \thefooter%
+    }%
+}%
+
 \makeatother
  
 \headheight=2cm

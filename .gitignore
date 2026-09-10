@@ -1,0 +1,14 @@
+tests/.build/
+__pycache__/
+__pycache__/
+*.py[cod]
+examples/*.aux
+examples/*.log
+examples/*.out
+examples/*.pdf
+examples/*.toc
+minimal.aux
+minimal.log
+minimal.out
+minimal.pdf
+minimal.toc

@@ -1,0 +1,38 @@
+name: LaTeX regression
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  templates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: tests/requirements.txt
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install TeX and PDF dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends texlive-xetex texlive-lang-chinese texlive-latex-extra texlive-science
+          python -m pip install -r tests/requirements.txt
+      - name: Render and validate fixtures
+        run: python tests/run.py
+      - name: Keep rendered PDFs and compilation logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: latex-regression
+          path: |
+            tests/.build/*/*.pdf
+            tests/.build/*/*.log
+            tests/.build/*/*.txt
+            tests/.build/*/*.tex
+          if-no-files-found: ignore

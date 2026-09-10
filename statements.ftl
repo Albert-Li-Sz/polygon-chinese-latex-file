@@ -1,8 +1,6 @@
 \documentclass [11pt, a4paper, oneside] {article}
-\usepackage [UTF8]{ctex}
-%\usepackage [T2A] {fontenc}
-%\usepackage [utf8] {inputenc}
-%\usepackage [english, russian] {babel}
+% 使用 XeLaTeX；Fandol 字体随 TeX Live 提供，避免依赖操作系统字体。
+\usepackage [UTF8, fontset=fandol]{ctex}
 \usepackage {amsmath}
 \usepackage {amssymb}
 \usepackage [chinese]{olymp}
@@ -23,16 +21,32 @@
 \usepackage {booktabs}
 \usepackage {etoolbox}
 
-\let\oldtextbf\textbf
-\renewcommand{\textbf}[1]{{\bfseries\heiti #1}}
-% 如果需要去掉题面中的 输入文件/输出文件/时间限制/空间限制 请分别取消注释这四项
+% ---------- 用户配置 ----------
+\newif\ifContestPrint
+\ContestPrintfalse % 电子版；改为 \ContestPrinttrue 启用打印版补空白页。
+\newif\ifContestCover
+\ContestCovertrue % 比赛题册封面；改为 \ContestCoverfalse 关闭。
+\newcommand{\ContestLogo}{statements-logo.png} % 图片不存在时自动省略。
+\newcommand{\ContestNotice}{请勿使用生成式人工智能参加本竞赛}
+\newcommand{\ContestStartWarning}{请勿在比赛正式开始前打开题面！}
+\renewcommand{\ExampleTabSize}{4} % 样例的 Tab 按每 4 个字符一组的制表位展开。
+% 长样例显示行以箭头开头表示续行；箭头不属于样例数据。
+% \renewcommand{\ExampleContinuationMarker}{\ensuremath{\hookrightarrow}\,}
+% 标题样式单独控制，不改变正文 \textbf 的含义。
+% \renewcommand{\problemtitlefont}{\sffamily\bfseries}
+% 如需隐藏输入文件、输出文件、时间限制、内存限制，取消对应行的注释。
 % \def\NoInputFileName{}
 % \def\NoOutputFileName{}
 % \def\NoTimeLimit{}
 % \def\NoMemoryLimit{}
- 
-% 如果需要左页留空 请取消注释下一行
-\intentionallyblankpagestrue
+% ---------- 用户配置结束 ----------
+
+\ifContestPrint
+  \intentionallyblankpagestrue
+\else
+  \intentionallyblankpagesfalse
+\fi
+\hypersetup{hidelinks}
  
 \ifpdf
   \DeclareGraphicsRule{*}{mps}{*}{}
@@ -79,17 +93,26 @@
 </#list>
  
 \ifmultistatements
+\ifContestCover
+\begingroup
+\pagestyle{empty}
  
-% 以下是题目标题页的示例
+% 封面不创建正文页码锚点，正文随后从第 1 页开始。
+\hypersetup{pageanchor=false}
  
 \title{\textbf{\Huge{${contest.name!}}}}
 \date{${contest.date!}}
 \author{${contest.location!}}
 \maketitle
+\thispagestyle{empty}
  
-\begin{center}
-\includegraphics[width=3in]{statements-logo.png}
-\end{center}
+\ifdefempty{\ContestLogo}{}{%
+  \IfFileExists{\ContestLogo}{%
+    \begin{center}
+    \includegraphics[width=3in]{\ContestLogo}
+    \end{center}
+  }{}
+}
  
 \vspace{2.5em}
  
@@ -100,23 +123,27 @@
  
 \vspace{1em}
  
-\text{请勿使用生成式人工智能参加本竞赛}
-\\
-\Large \textbf{请勿在比赛正式开始前打开题面！}
+\ContestNotice\par
+\Large \textbf{\ContestStartWarning}
 
 \end{center}
 \thispagestyle{empty}
  
 \clearpage
-\phantom{s}
+\ifContestPrint
+\ifodd\value{page}
+\else
+\null
 \thispagestyle{empty}
-\setcounter{page}{0}
- 
 \clearpage
- 
 \fi
- 
-% 以上是题目标题页的示例
+\fi
+\endgroup
+\setcounter{page}{1}
+\hypersetup{pageanchor=true}
+
+\fi
+\fi
  
 \contest
 {${contest.name!}}%
